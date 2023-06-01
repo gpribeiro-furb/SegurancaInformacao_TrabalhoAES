@@ -10,6 +10,11 @@ namespace CriptografiaAES.Model
     {
         public byte[] Bytes { get; set; }
 
+        public Word()
+        {
+            
+        }
+
         public Word(byte[] Bytes)
         {
             this.Bytes = Bytes;
