@@ -85,10 +85,18 @@ namespace CriptografiaAES
                 var wordA = Palavras[i];
                 var wordB = Palavras[i + 3];
 
+                // Passo 2
                 RotWord(wordB);
 
+                // Passo 3
                 AplicarSBox(wordB);
+                
+                // Passo 4
+                var keyIndex = Math.Floor((double)i / 4d);
+                var roundConstant = GerarRoundConstant(keyIndex);
 
+                // Passo 5
+                wordB = XOR(wordB, roundConstant);
 
 
                 var newWord = XOR(wordA, wordB); // ?
@@ -151,6 +159,15 @@ namespace CriptografiaAES
             var coluna = AlfabetoHex.IndexOf(letraColuna);
 
             return SBox[linha, coluna];
+        }
+
+        private static Word GerarRoundConstant(double index)
+        {
+            var roundConstant = new Word();
+
+            roundConstant.Bytes = new byte[] { 0, 0, 0, (byte)Math.Pow(2, index) };
+
+                return roundConstant;
         }
     }
 }
