@@ -99,6 +99,13 @@ namespace CriptografiaAES
                 wordB = XOR(wordB, roundConstant);
 
 
+
+                // A primeira palavra de cada KEY é feita com todos esses passos
+                // depois é feito o XOR da palavra anterior, com o index atual da KEY anterior
+                // Tipo w7 é feito o XOR de w6 com w3
+                // w8 é feito todo o processo dnv
+
+
                 var newWord = XOR(wordA, wordB); // ?
 
                 Palavras[i + 4] = newWord;
