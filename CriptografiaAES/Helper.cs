@@ -2,15 +2,17 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Drawing.Drawing2D;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using static System.Reflection.Metadata.BlobBuilder;
 
 namespace CriptografiaAES
 {
     internal class Helper
     {
-        private static byte[,] SBox = {
+        private static byte[,] sBox = {
             { 0x63, 0x7C, 0x77, 0x7B, 0xF2, 0x6B, 0x6F, 0xC5, 0x30, 0x01, 0x67, 0x2B, 0xFE, 0xD7, 0xAB, 0x76 },
             { 0xCA, 0x82, 0xC9, 0x7D, 0xFA, 0x59, 0x47, 0xF0, 0xAD, 0xD4, 0xA2, 0xAF, 0x9C, 0xA4, 0x72, 0xC0 },
             { 0xB7, 0xFD, 0x93, 0x26, 0x36, 0x3F, 0xF7, 0xCC, 0x34, 0xA5, 0xE5, 0xF1, 0x71, 0xD8, 0x31, 0x15 },
@@ -29,90 +31,130 @@ namespace CriptografiaAES
             { 0x8C, 0xA1, 0x89, 0x0D, 0xBF, 0xE6, 0x42, 0x68, 0x41, 0x99, 0x2D, 0x0F, 0xB0, 0x54, 0xBB, 0x16 },
         };
 
-        private static List<char> AlfabetoHex = new List<char> { '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'A', 'B', 'C', 'D', 'E', 'F' };
-        public static string Chave { get; set; }
+        private static List<char> alfabetoHex = new List<char> { '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'A', 'B', 'C', 'D', 'E', 'F' };
+        public static string chave { get; set; }
+        private static List<Word> chavesExpandidas { get; set; }
 
-        public static string Encriptografar(string CaminhoArquivo)
+        public static string Encriptografar(string caminhoArquivo)
         {
-            if (Chave == null)
+            if (chave == null)
                 throw new NullReferenceException("Informe uma chave de encriptação");
 
-            var ArquivoEncriptografado = "";
+            var arquivoEncriptografado = "";
 
-            var Chaves = ExpensaoDeChave();
+            chavesExpandidas = ExpensaoDeChave();
 
-            return ArquivoEncriptografado;
+            var textoSimples = UTF8Encoding.UTF8.GetBytes("DESENVOLVIMENTO!");
+            var resultadoEncriptado = Cifragem(textoSimples);
+
+            return arquivoEncriptografado;
         }
 
-        private static List<string> ExpensaoDeChave()
+        private static List<Word> ExpensaoDeChave()
         {
-            var Chaves = new List<string>();
-
             // Transforma a chave de String para um array de bytes
-            var ByteArray = UTF8Encoding.UTF8.GetBytes(Chave);
+            var byteArray = UTF8Encoding.UTF8.GetBytes(chave);
 
             // Transforma o array de bytes em um vetor (igual o conteúdo)
-            var VetorChave = new byte[4, 4];
-            for (int i = 0; i < ByteArray.Length; i++)
+            var vetorChave = new byte[4, 4];
+            for (int i = 0; i < byteArray.Length; i++)
             {
-                int Coluna = i / 4;
-                int Linha = i % 4;
-                VetorChave[Linha, Coluna] = ByteArray[i];
+                int coluna = i / 4;
+                int linha = i % 4;
+                vetorChave[linha, coluna] = byteArray[i];
             }
 
             // Criando o as 11 round keys
-            var Palavras = new Word[44];
+            var palavras = new Word[44];
 
             // Montando a chave original
             for (int i = 0; i < 4; i++)
             {
-                var Palavra = new Word();
-                Palavra.Bytes = new byte[] { VetorChave[0, i],
-                                             VetorChave[1, i],
-                                             VetorChave[2, i],
-                                             VetorChave[3, i] };
+                var palavra = new Word();
+                palavra.Bytes = new byte[] { vetorChave[0, i],
+                                             vetorChave[1, i],
+                                             vetorChave[2, i],
+                                             vetorChave[3, i] };
 
-                Palavras[i] = Palavra;
+                palavras[i] = palavra;
             }
 
             // Criando as outras 10 keys
             for (int i = 0; i < 40; i++)
             {
-                // Cada word das próximas keys é o XOR da palavra diretamente anterior
+                // Cada word (que não é a primeira) das próximas keys é o XOR da palavra diretamente anterior
                 // com a palavra da mesma posição da atual, da chave anterior
                 // w4 = w0 XOR w3
                 // w5 = w1 XOR w4
-                var wordA = Palavras[i];
-                var wordB = Palavras[i + 3];
 
-                // Passo 2
-                RotWord(wordB);
+                // A primeira palavra de cada KEY é feita com todos esses passos:
+                Word newWord;
+                var wordA = palavras[i + 3];
 
-                // Passo 3
-                AplicarSBox(wordB);
-                
-                // Passo 4
-                var keyIndex = Math.Floor((double)i / 4d);
-                var roundConstant = GerarRoundConstant(keyIndex);
+                if (i % 4 == 0)
+                {
+                    // Passo 2
+                    newWord = RotWord(wordA);
 
-                // Passo 5
-                wordB = XOR(wordB, roundConstant);
+                    // Passo 3
+                    newWord = AplicarSBox(newWord);
 
+                    // Passo 4
+                    var keyIndex = Math.Floor((double)i / 4d);
+                    var roundConstant = GerarRoundConstant(keyIndex);
 
+                    // Passo 5
+                    newWord = XOR(newWord, roundConstant);
+                } else
+                {
+                    var wordB = palavras[i];
 
-                // A primeira palavra de cada KEY é feita com todos esses passos
-                // depois é feito o XOR da palavra anterior, com o index atual da KEY anterior
-                // Tipo w7 é feito o XOR de w6 com w3
-                // w8 é feito todo o processo dnv
+                    newWord = XOR(wordB, wordA);
+                }
 
-
-                var newWord = XOR(wordA, wordB); // ?
-
-                Palavras[i + 4] = newWord;
+                palavras[i + 4] = newWord;
             }
 
 
-            return Chaves;
+            return palavras.ToList();
+        }
+
+        public static byte[] Cifragem(byte[] textoSimples)
+        {
+            var blocos = SepararPorBlocos(textoSimples);
+
+            var blocosEncriptografados = new List<byte[,]>();
+            foreach (var item in blocos)
+            {
+                //Passo 1
+                var chave0 = GetChaveByIndex(0);
+                var blocoA = XOR(item, chave0);
+                var a = 2;
+
+
+            }
+
+            return textoSimples;
+        }
+
+        public static List<byte[,]> SepararPorBlocos(byte[] byteArray)
+        {
+            var blocos = new List<byte[,]>();
+            var bloco = new byte[4, 4];
+            for (int i = 0; i < byteArray.Length; i++)
+            {
+                var linha = i % 4;
+                var coluna = (int)Math.Floor((double)i / 4d);
+
+                bloco[coluna, linha] = byteArray[i];
+                if (i > 0 && (i + 1) % 16 == 0)
+                {
+                    blocos.Add(bloco);
+                    bloco = new byte[4, 4];
+                }
+            }
+
+            return blocos;
         }
 
         private static Word XOR(Word wordA, Word wordB)
@@ -122,12 +164,12 @@ namespace CriptografiaAES
 
             if (arrayA.Length == arrayB.Length)
             {
-                byte[] result = new byte[arrayA.Length];
+                byte[] resultado = new byte[arrayA.Length];
                 for (int i = 0; i < arrayA.Length; i++)
                 {
-                    result[i] = (byte)(arrayA[i] ^ arrayB[i]);
+                    resultado[i] = (byte)(arrayA[i] ^ arrayB[i]);
                 }
-                return new Word(result);
+                return new Word(resultado);
             }
             else
             {
@@ -135,17 +177,34 @@ namespace CriptografiaAES
             }
         }
 
+        private static byte[,] XOR(byte[,] bytesA, byte[,] bytesB)
+        {
+            int linhas = bytesA.GetLength(0);
+            int colunas = bytesA.GetLength(1);
+
+            if (linhas != bytesB.GetLength(0) || colunas != bytesB.GetLength(1))
+            {
+                throw new ArgumentException();
+            }
+
+            byte[,] resultado = new byte[linhas, colunas];
+
+            for (int i = 0; i < linhas; i++)
+            {
+                for (int j = 0; j < colunas; j++)
+                {
+                    resultado[i, j] = (byte)(bytesA[i, j] ^ bytesB[i, j]);
+                }
+            }
+
+            return resultado;
+        }
+
         private static Word RotWord(Word word)
         {
-            var tempByte = word.Bytes[0];
-
-            word.Bytes[0] = word.Bytes[1];
-            word.Bytes[1] = word.Bytes[2];
-            word.Bytes[2] = word.Bytes[3];
-            word.Bytes[3] = tempByte;
-
-            return word;
+            return new Word(new byte[] { word.Bytes[1], word.Bytes[2], word.Bytes[3], word.Bytes[0] });
         }
+
         private static Word AplicarSBox(Word word)
         {
             var newWord = new Word(new byte[4]);
@@ -162,10 +221,10 @@ namespace CriptografiaAES
         {
             var letraLinha = posicao[0];
             var letraColuna = posicao[1];
-            var linha = AlfabetoHex.IndexOf(letraLinha);
-            var coluna = AlfabetoHex.IndexOf(letraColuna);
+            var linha = alfabetoHex.IndexOf(letraLinha);
+            var coluna = alfabetoHex.IndexOf(letraColuna);
 
-            return SBox[linha, coluna];
+            return sBox[linha, coluna];
         }
 
         private static Word GerarRoundConstant(double index)
@@ -175,6 +234,23 @@ namespace CriptografiaAES
             roundConstant.Bytes = new byte[] { 0, 0, 0, (byte)Math.Pow(2, index) };
 
                 return roundConstant;
+        }
+
+        private static byte[,] GetChaveByIndex(int index)
+        {
+            index *= 4;
+            var bloco = new byte[4, 4];
+
+            for (int i = 0; i < 4; i++)
+            {
+                var word = chavesExpandidas[index + i];
+                for (int j = 0; j < 4; j++)
+                {
+                    bloco[i, j] = word.Bytes[j];
+                }
+            }
+
+            return bloco;
         }
     }
 }

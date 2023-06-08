@@ -6,7 +6,7 @@ namespace CriptografiaAES
         {
             InitializeComponent();
 
-            Helper.Chave = "ABCDEFGHIJKLMNOP";
+            Helper.chave = "ABCDEFGHIJKLMNOP";
             Helper.Encriptografar("C:\\Users\\panca\\OneDrive\\Área de Trabalho\\Coisas\\Furb\\Segurança\\resumo.txt");
         }
     }
