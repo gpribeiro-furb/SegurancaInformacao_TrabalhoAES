@@ -3,6 +3,7 @@ using Microsoft.VisualBasic.Devices;
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Drawing;
 using System.Drawing.Drawing2D;
 using System.Linq;
 using System.Reflection.Metadata;
@@ -80,7 +81,7 @@ namespace CriptografiaAES
         };
 
         private static List<char> alfabetoHex = new List<char> { '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'A', 'B', 'C', 'D', 'E', 'F' };
-        public static string chave { get; set; }
+        public static byte[] chave { get; set; }
         private static List<Word> chavesExpandidas { get; set; }
 
         public static string Encriptografar(string caminhoArquivo)
@@ -92,24 +93,26 @@ namespace CriptografiaAES
 
             chavesExpandidas = ExpensaoDeChave();
 
-            var textoSimples = UTF8Encoding.UTF8.GetBytes("DESENVOLVIMENTO!");
+            var textoSimplesTeste = UTF8Encoding.UTF8.GetBytes("DESENVOLVIMENTO!");
+            var textoSimples = File.ReadAllBytes(caminhoArquivo);
             var resultadoEncriptado = Cifragem(textoSimples);
+            var resultadoHex = BitConverter.ToString(resultadoEncriptado).Replace("-", "");
 
-            return arquivoEncriptografado;
+            return resultadoHex;
         }
 
         private static List<Word> ExpensaoDeChave()
         {
             // Transforma a chave de String para um array de bytes
-            var byteArray = UTF8Encoding.UTF8.GetBytes(chave);
+            var byteArray = UTF8Encoding.UTF8.GetBytes("ABCDEFGHIJKLMNOP");
 
             // Transforma o array de bytes em um vetor (igual o conteúdo)
             var vetorChave = new byte[4, 4];
-            for (int i = 0; i < byteArray.Length; i++)
+            for (int i = 0; i < chave.Length; i++)
             {
                 int coluna = i / 4;
                 int linha = i % 4;
-                vetorChave[linha, coluna] = byteArray[i];
+                vetorChave[linha, coluna] = chave[i];
             }
 
             // Criando o as 11 round keys
@@ -138,6 +141,7 @@ namespace CriptografiaAES
                 // A primeira palavra de cada KEY é feita com todos esses passos:
                 Word newWord;
                 var wordA = palavras[i + 3];
+                var wordB = palavras[i];
 
                 if (i % 4 == 0)
                 {
@@ -153,11 +157,10 @@ namespace CriptografiaAES
 
                     // Passo 5
                     newWord = XOR(newWord, roundConstant);
+                    newWord = XOR(newWord, wordB);
                 }
                 else
                 {
-                    var wordB = palavras[i];
-
                     newWord = XOR(wordB, wordA);
                 }
 
@@ -190,9 +193,10 @@ namespace CriptografiaAES
                     //Passo 4
                     var blocoD = MixColumns(blocoC);
                     //Passo 5
-                    blocoA = XOR(blocoD, GetChaveByIndex(i));
+                    var chaveUsada = GetChaveByIndex(i);
+                    blocoA = XOR(blocoD, chaveUsada);
                 }
-                
+
                 blocoB = AplicarSBox(blocoA);
                 blocoC = ShiftRows(blocoB);
                 var resultadoFinal = XOR(blocoC, GetChaveByIndex(10));
@@ -324,7 +328,7 @@ namespace CriptografiaAES
         {
             var roundConstant = new Word();
 
-            roundConstant.Bytes = new byte[] { 0, 0, 0, (byte)Math.Pow(2, index) };
+            roundConstant.Bytes = new byte[] { (byte)Math.Pow(2, index), 0, 0, 0 };
 
             return roundConstant;
         }
@@ -383,7 +387,7 @@ namespace CriptografiaAES
                 {
                     var valor = bloco[linha, coluna];
                     var byteEmTexto = BitConverter.ToString(new byte[] { valor }).Split("-");
-                    blocoR[coluna, linha] = GetFromTabelaL(byteEmTexto[0]);
+                    blocoR[linha, coluna] = byteEmTexto[0] == "01" ? (byte)0x01 : GetFromTabelaL(byteEmTexto[0]);
                 }
             }
 
@@ -397,20 +401,25 @@ namespace CriptografiaAES
                     var multiplicador2 = matrizMultiplicacao[linha, 1];
                     var multiplicador3 = matrizMultiplicacao[linha, 2];
                     var multiplicador4 = matrizMultiplicacao[linha, 3];
-                    var resultado1 = MultiplicarBytes(blocoR[0, coluna], multiplicador1);
-                    var resultado2 = MultiplicarBytes(blocoR[1, coluna], multiplicador2);
-                    var resultado3 = MultiplicarBytes(blocoR[2, coluna], multiplicador3);
-                    var resultado4 = MultiplicarBytes(blocoR[3, coluna], multiplicador4);
+                    var resultado1 = multiplicador1 > 1 ? MultiplicarBytes(blocoR[0, coluna], multiplicador1) : bloco[0, coluna];
+                    var resultado2 = multiplicador2 > 1 ? MultiplicarBytes(blocoR[1, coluna], multiplicador2) : bloco[1, coluna];
+                    var resultado3 = multiplicador3 > 1 ? MultiplicarBytes(blocoR[2, coluna], multiplicador3) : bloco[2, coluna];
+                    var resultado4 = multiplicador4 > 1 ? MultiplicarBytes(blocoR[3, coluna], multiplicador4) : bloco[3, coluna];
 
-                    var xor1 = (byte)(resultado1 ^ resultado2);
-                    var xor2 = (byte)(xor1 ^ resultado3);
-                    var byteResultado = (byte)(xor2 ^ resultado4);
+                    var resultado1E = multiplicador1 > 1 && bloco[0, coluna] != 0x01 ? GetFromTabelaE(resultado1) : resultado1;
+                    var resultado2E = multiplicador2 > 1 && bloco[1, coluna] != 0x01 ? GetFromTabelaE(resultado2) : resultado2;
+                    var resultado3E = multiplicador3 > 1 && bloco[2, coluna] != 0x01 ? GetFromTabelaE(resultado3) : resultado3;
+                    var resultado4E = multiplicador4 > 1 && bloco[3, coluna] != 0x01 ? GetFromTabelaE(resultado4) : resultado4;
+
+                    var xor1 = (byte)(resultado1E ^ resultado2E);
+                    var xor2 = (byte)(resultado3E ^ resultado4E);
+                    var byteResultado = (byte)(xor1 ^ xor2);
 
                     blocoResultado[linha, coluna] = byteResultado;
                 }
             }
 
-            return blocoR;
+            return blocoResultado;
         }
 
         private static byte MultiplicarBytes(byte byteOriginal, int valor)
@@ -422,6 +431,9 @@ namespace CriptografiaAES
             else if (valor == 1)
             {
                 return byteOriginal;
+            } else if (byteOriginal == 0x01)
+            {
+                return (byte)valor;
             }
 
             var segundoByte = tabelaL[0, valor];
@@ -444,6 +456,16 @@ namespace CriptografiaAES
             var coluna = alfabetoHex.IndexOf(letraColuna);
 
             return tabelaL[linha, coluna];
+        }
+        private static byte GetFromTabelaE(byte valorEmByte)
+        {
+            var posicao = BitConverter.ToString(new byte[] { valorEmByte }).Split("-")[0];
+            var letraLinha = posicao[0];
+            var letraColuna = posicao[1];
+            var linha = alfabetoHex.IndexOf(letraLinha);
+            var coluna = alfabetoHex.IndexOf(letraColuna);
+
+            return tabelaE[linha, coluna];
         }
 
         private static byte[] BlocoToByteArray(byte[,] bloco)
