@@ -188,13 +188,19 @@ namespace CriptografiaAES
                 {
                     //Passo 2
                     blocoB = AplicarSBox(blocoA);
+                    var blocoBTexto = BlocoToString(blocoB);
                     //Passo 3
                     blocoC = ShiftRows(blocoB);
+                    var blocoCTexto = BlocoToString(blocoC);
                     //Passo 4
                     var blocoD = MixColumns(blocoC);
+                    var blocoDTexto = BlocoToString(blocoD);
                     //Passo 5
                     var chaveUsada = GetChaveByIndex(i);
+                    var chaveUsadaTexto = BlocoToString(chaveUsada);
                     blocoA = XOR(blocoD, chaveUsada);
+                    var blocoATexto = BlocoToString(blocoA);
+                    var a = 2;
                 }
 
                 blocoB = AplicarSBox(blocoA);
@@ -226,7 +232,7 @@ namespace CriptografiaAES
                 var linha = i % 4;
                 var coluna = (int)Math.Floor((double)i / 4d);
 
-                bloco[coluna, linha] = byteArray[i];
+                bloco[linha, coluna] = byteArray[i];
                 if (i > 0 && (i + 1) % 16 == 0)
                 {
                     blocos.Add(bloco);
@@ -306,7 +312,7 @@ namespace CriptografiaAES
                 {
                     var valor = bloco[linha, coluna];
                     var byteEmTexto = BitConverter.ToString(new byte[] { valor }).Split("-");
-                    novoBloco[coluna, linha] = GetFromSBox(byteEmTexto[0]);
+                    novoBloco[linha, coluna] = GetFromSBox(byteEmTexto[0]);
                 }
             }
 
@@ -328,7 +334,9 @@ namespace CriptografiaAES
         {
             var roundConstant = new Word();
 
-            roundConstant.Bytes = new byte[] { (byte)Math.Pow(2, index), 0, 0, 0 };
+            var valor = Math.Pow(2, index);
+            valor = valor == 256 ? 27 : valor == 512 ? 54 : valor;
+            roundConstant.Bytes = new byte[] { (byte)valor, 0, 0, 0 };
 
             return roundConstant;
         }
@@ -343,7 +351,7 @@ namespace CriptografiaAES
                 var word = chavesExpandidas[index + i];
                 for (int j = 0; j < 4; j++)
                 {
-                    bloco[i, j] = word.Bytes[j];
+                    bloco[j, i] = word.Bytes[j];
                 }
             }
 
@@ -406,10 +414,10 @@ namespace CriptografiaAES
                     var resultado3 = multiplicador3 > 1 ? MultiplicarBytes(blocoR[2, coluna], multiplicador3) : bloco[2, coluna];
                     var resultado4 = multiplicador4 > 1 ? MultiplicarBytes(blocoR[3, coluna], multiplicador4) : bloco[3, coluna];
 
-                    var resultado1E = multiplicador1 > 1 && bloco[0, coluna] != 0x01 ? GetFromTabelaE(resultado1) : resultado1;
-                    var resultado2E = multiplicador2 > 1 && bloco[1, coluna] != 0x01 ? GetFromTabelaE(resultado2) : resultado2;
-                    var resultado3E = multiplicador3 > 1 && bloco[2, coluna] != 0x01 ? GetFromTabelaE(resultado3) : resultado3;
-                    var resultado4E = multiplicador4 > 1 && bloco[3, coluna] != 0x01 ? GetFromTabelaE(resultado4) : resultado4;
+                    var resultado1E = bloco[0, coluna] == 0 ? 0 : multiplicador1 > 1 && bloco[0, coluna] != 0x01 ? GetFromTabelaE(resultado1) : resultado1;
+                    var resultado2E = bloco[1, coluna] == 0 ? 0 : multiplicador2 > 1 && bloco[1, coluna] != 0x01 ? GetFromTabelaE(resultado2) : resultado2;
+                    var resultado3E = bloco[2, coluna] == 0 ? 0 : multiplicador3 > 1 && bloco[2, coluna] != 0x01 ? GetFromTabelaE(resultado3) : resultado3;
+                    var resultado4E = bloco[3, coluna] == 0 ? 0 : multiplicador4 > 1 && bloco[3, coluna] != 0x01 ? GetFromTabelaE(resultado4) : resultado4;
 
                     var xor1 = (byte)(resultado1E ^ resultado2E);
                     var xor2 = (byte)(resultado3E ^ resultado4E);
@@ -431,7 +439,8 @@ namespace CriptografiaAES
             else if (valor == 1)
             {
                 return byteOriginal;
-            } else if (byteOriginal == 0x01)
+            }
+            else if (byteOriginal == 0x01)
             {
                 return (byte)valor;
             }
@@ -483,6 +492,22 @@ namespace CriptografiaAES
             }
 
             return byteArray;
+        }
+
+        private static string BlocoToString(byte[,] bloco)
+        {
+            string hexString = "";
+
+            for (int row = 0; row < bloco.GetLength(0); row++)
+            {
+                for (int col = 0; col < bloco.GetLength(1); col++)
+                {
+                    hexString += bloco[col, row].ToString("X2");
+                }
+                hexString += " ";
+            }
+
+            return hexString.ToLower();
         }
     }
 }
