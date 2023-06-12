@@ -227,12 +227,33 @@ namespace CriptografiaAES
         {
             var blocos = new List<byte[,]>();
             var bloco = new byte[4, 4];
-            for (int i = 0; i < byteArray.Length; i++)
-            {
-                var linha = i % 4;
-                var coluna = (int)Math.Floor((double)i / 4d);
 
-                bloco[linha, coluna] = byteArray[i];
+            var byteList = byteArray.ToList();
+            var qntdPadding = 16 - (byteArray.Length % 16);
+            if (qntdPadding == 16)
+            {
+                byteList.AddRange(new List<byte> {
+                    0x10, 0x10, 0x10, 0x10,
+                    0x10, 0x10, 0x10, 0x10,
+                    0x10, 0x10, 0x10, 0x10,
+                    0x10, 0x10, 0x10, 0x10
+                });
+            }
+            else
+            {
+                for (int indexPadding = 0; indexPadding < qntdPadding; indexPadding++)
+                {
+                    byteList.Add((byte)qntdPadding);
+                }
+            }
+
+            for (int i = 0; i < byteList.Count; i++)
+            {
+                var index = i >= 16 ? i % 16 : i;
+                var linha = index % 4;
+                var coluna = (int)Math.Floor((double)index / 4d);
+
+                bloco[linha, coluna] = byteList[i];
                 if (i > 0 && (i + 1) % 16 == 0)
                 {
                     blocos.Add(bloco);
@@ -409,10 +430,10 @@ namespace CriptografiaAES
                     var multiplicador2 = matrizMultiplicacao[linha, 1];
                     var multiplicador3 = matrizMultiplicacao[linha, 2];
                     var multiplicador4 = matrizMultiplicacao[linha, 3];
-                    var resultado1 = multiplicador1 > 1 ? MultiplicarBytes(blocoR[0, coluna], multiplicador1) : bloco[0, coluna];
-                    var resultado2 = multiplicador2 > 1 ? MultiplicarBytes(blocoR[1, coluna], multiplicador2) : bloco[1, coluna];
-                    var resultado3 = multiplicador3 > 1 ? MultiplicarBytes(blocoR[2, coluna], multiplicador3) : bloco[2, coluna];
-                    var resultado4 = multiplicador4 > 1 ? MultiplicarBytes(blocoR[3, coluna], multiplicador4) : bloco[3, coluna];
+                    var resultado1 = multiplicador1 > 1 ? MultiplicarBytes(bloco[0, coluna], blocoR[0, coluna], multiplicador1) : bloco[0, coluna];
+                    var resultado2 = multiplicador2 > 1 ? MultiplicarBytes(bloco[1, coluna], blocoR[1, coluna], multiplicador2) : bloco[1, coluna];
+                    var resultado3 = multiplicador3 > 1 ? MultiplicarBytes(bloco[2, coluna], blocoR[2, coluna], multiplicador3) : bloco[2, coluna];
+                    var resultado4 = multiplicador4 > 1 ? MultiplicarBytes(bloco[3, coluna], blocoR[3, coluna], multiplicador4) : bloco[3, coluna];
 
                     var resultado1E = bloco[0, coluna] == 0 ? 0 : multiplicador1 > 1 && bloco[0, coluna] != 0x01 ? GetFromTabelaE(resultado1) : resultado1;
                     var resultado2E = bloco[1, coluna] == 0 ? 0 : multiplicador2 > 1 && bloco[1, coluna] != 0x01 ? GetFromTabelaE(resultado2) : resultado2;
@@ -430,7 +451,7 @@ namespace CriptografiaAES
             return blocoResultado;
         }
 
-        private static byte MultiplicarBytes(byte byteOriginal, int valor)
+        private static byte MultiplicarBytes(byte byteOriginal, byte byteR, int valor)
         {
             if (valor == 0 || byteOriginal == 0)
             {
@@ -446,10 +467,10 @@ namespace CriptografiaAES
             }
 
             var segundoByte = tabelaL[0, valor];
-            var resultado = (byte)(byteOriginal + segundoByte);
+            var resultado = (byte)(byteR + segundoByte);
 
             //Dúvida:
-            if (byteOriginal >= 0xE7 && resultado < 0xE7)
+            if (byteR >= 0xE7 && resultado < 0xE7)
             {
                 resultado += 0x01;
             }
