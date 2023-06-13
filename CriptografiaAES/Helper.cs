@@ -84,7 +84,7 @@ namespace CriptografiaAES
         public static byte[] chave { get; set; }
         private static List<Word> chavesExpandidas { get; set; }
 
-        public static string Encriptografar(string caminhoArquivo)
+        public static byte[] Encriptografar(string caminhoArquivo)
         {
             if (chave == null)
                 throw new NullReferenceException("Informe uma chave de encriptação");
@@ -96,9 +96,8 @@ namespace CriptografiaAES
             var textoSimplesTeste = UTF8Encoding.UTF8.GetBytes("DESENVOLVIMENTO!");
             var textoSimples = File.ReadAllBytes(caminhoArquivo);
             var resultadoEncriptado = Cifragem(textoSimples);
-            var resultadoHex = BitConverter.ToString(resultadoEncriptado).Replace("-", "");
 
-            return resultadoHex;
+            return resultadoEncriptado  ;
         }
 
         private static List<Word> ExpensaoDeChave()
@@ -230,21 +229,9 @@ namespace CriptografiaAES
 
             var byteList = byteArray.ToList();
             var qntdPadding = 16 - (byteArray.Length % 16);
-            if (qntdPadding == 16)
+            for (int indexPadding = 0; indexPadding < qntdPadding; indexPadding++)
             {
-                byteList.AddRange(new List<byte> {
-                    0x10, 0x10, 0x10, 0x10,
-                    0x10, 0x10, 0x10, 0x10,
-                    0x10, 0x10, 0x10, 0x10,
-                    0x10, 0x10, 0x10, 0x10
-                });
-            }
-            else
-            {
-                for (int indexPadding = 0; indexPadding < qntdPadding; indexPadding++)
-                {
-                    byteList.Add((byte)qntdPadding);
-                }
+                byteList.Add((byte)qntdPadding);
             }
 
             for (int i = 0; i < byteList.Count; i++)

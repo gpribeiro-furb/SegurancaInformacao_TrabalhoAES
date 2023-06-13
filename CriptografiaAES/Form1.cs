@@ -34,7 +34,20 @@ namespace CriptografiaAES
         {
             var chave = textBox2.Text.Split(',').Select(x => byte.Parse(x)).ToArray();
             Helper.chave = chave;
-            textBox4.Text = Helper.Encriptografar(textBox1.Text);
+            var resultadoEncriptado = Helper.Encriptografar(textBox1.Text);
+
+            textBox4.Text = BitConverter.ToString(resultadoEncriptado).Replace("-", "");
+
+            if (checkBox1.Checked)
+            {
+                var sfd = new SaveFileDialog();
+                if (sfd.ShowDialog() == DialogResult.OK)
+                {
+                    textBox3.Text = sfd.FileName;
+                }
+            }
+
+            File.WriteAllBytes(textBox3.Text, resultadoEncriptado);
         }
     }
 }
